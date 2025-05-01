@@ -1,6 +1,6 @@
 const userRepository = require("../repositories/user.repositories");
 const baseResponse = require("../utils/baseResponse.util");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

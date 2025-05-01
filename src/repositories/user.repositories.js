@@ -1,5 +1,5 @@
 const { pool } = require("../database/pg.database");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 // REGISTER
 exports.registerUser = async (name, email, password) => {
