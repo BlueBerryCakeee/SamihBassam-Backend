@@ -1,8 +1,8 @@
-const { pool } = require("../database/pg.database");
-const bcrypt = require("bcryptjs");
+import { pool } from "../database/pg.database.js";
+import bcrypt from "bcryptjs";
 
 // REGISTER
-exports.registerUser = async (name, email, password) => {
+export const registerUser = async (name, email, password) => {
   try {
 
     const result = await pool.query(
@@ -17,7 +17,7 @@ exports.registerUser = async (name, email, password) => {
 };
 
 // LOGIN
-exports.loginUser = async (email, password) => {
+export const loginUser = async (email, password) => {
   const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
 
   if (result.rows.length === 0) {
@@ -36,16 +36,14 @@ exports.loginUser = async (email, password) => {
   return user;
 };
 
-
-
 // GET USER BY EMAIL
-exports.getUserByEmail = async (email) => {
+export const getUserByEmail = async (email) => {
   const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
   return result.rows[0];
 };
 
 // UPDATE
-exports.updateUser = async (id, name, email, password) => {
+export const updateUser = async (id, name, email, password) => {
   const hashedPassword = await bcrypt.hash(password, 10);
 
   const result = await pool.query(
@@ -60,21 +58,20 @@ exports.updateUser = async (id, name, email, password) => {
   return result.rows[0];
 };
 
-
 // DELETE
-exports.deleteUser = async (id) => {
+export const deleteUser = async (id) => {
   const result = await pool.query("DELETE FROM users WHERE id = $1 RETURNING *", [id]);
   return result.rows[0];
 };
 
 // GET USER BY ID
-exports.getUserById = async (id) => {
+export const getUserById = async (id) => {
   const result = await pool.query("SELECT * FROM users WHERE id = $1", [id]);
   return result.rows[0];
 };
 
 // TOP UP
-exports.topUpUser = async (id, amount) => {
+export const topUpUser = async (id, amount) => {
   try {
     const result = await pool.query(
       "UPDATE users SET balance = balance + $1 WHERE id = $2 RETURNING *",
@@ -88,7 +85,7 @@ exports.topUpUser = async (id, amount) => {
 };
 
 // Tambahkan function ini di user repository
-exports.updateBalance = async (id, newBalance, client = pool) => {
+export const updateBalance = async (id, newBalance, client = pool) => {
   try {
     const result = await client.query(
       `UPDATE users SET balance = $1 WHERE id = $2 RETURNING *`,
