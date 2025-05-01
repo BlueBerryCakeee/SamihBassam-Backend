@@ -1,5 +1,5 @@
 { 
-    "version":2, 
+    "version": 2, 
     "builds": [ 
         { 
             "src": "api/index.js", 
@@ -11,5 +11,8 @@
             "src": "/(.*)", 
             "dest": "/api/index.js" 
         } 
-    ] 
+    ],
+    "env": {
+        "PG_CONNECTION_STRING": "postgresql://neondb_owner:npg_hOwbC2A8iyxz@ep-long-haze-a48zitof-pooler.us-east-1.aws.neon.tech/samihbassam_express?sslmode=require"
+    }
 }
