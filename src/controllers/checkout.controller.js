@@ -19,7 +19,9 @@ exports.processCheckout = async (req, res) => {
     }
 
     // Hitung total harga
-    const totalAmount = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const totalAmount = cartItems.reduce((sum, item) => {
+      return sum + (parseFloat(item.price) * parseInt(item.quantity));
+    }, 0);
     
     // Ambil data user untuk cek saldo
     const user = await userRepository.getUserById(user_id);
@@ -28,8 +30,7 @@ exports.processCheckout = async (req, res) => {
       return baseResponse(res, false, 404, "User not found", null);
     }
     
-    // Perbaiki kondisi pengecekan saldo
-    // Cek saldo mencukupi - pastikan keduanya adalah number dan perbandingan benar
+    // Pastikan saldo mencukupi - konversi ke number untuk perbandingan yang benar
     const userBalance = parseFloat(user.balance);
     const orderTotal = parseFloat(totalAmount);
 
@@ -52,43 +53,64 @@ exports.processCheckout = async (req, res) => {
       // Kurangi saldo user
       const updatedUser = await userRepository.updateBalance(
         user_id, 
-        user.balance - totalAmount, 
+        userBalance - orderTotal, 
         client
       );
       
       // Buat order/transaction record
       const orderResult = await client.query(
         `INSERT INTO orders (user_id, total_amount) VALUES ($1, $2) RETURNING id`,
-        [user_id, totalAmount]
+        [user_id, orderTotal]
       );
       
       const orderId = orderResult.rows[0].id;
       
-      // Tambahkan item ke order_items
+      // Tambahkan item ke order_items dengan subtotal
       for (const item of cartItems) {
+        const itemPrice = parseFloat(item.price);
+        const itemQuantity = parseInt(item.quantity);
+        const subtotal = itemPrice * itemQuantity;
+        
+        console.log(`Processing order item: ${item.name || 'Unknown'}, price: ${itemPrice}, quantity: ${itemQuantity}, subtotal: ${subtotal}`);
+        
         await client.query(
-          `INSERT INTO order_items (order_id, item_id, quantity, price) 
-           VALUES ($1, $2, $3, $4)`,
-          [orderId, item.item_id, item.quantity, item.price]
+          `INSERT INTO order_items (order_id, item_id, quantity, price, subtotal) 
+           VALUES ($1, $2, $3, $4, $5)`,
+          [orderId, item.item_id, itemQuantity, itemPrice, subtotal]
         );
       }
       
       // Hapus item dari keranjang
       await client.query(`DELETE FROM cart WHERE user_id = $1`, [user_id]);
       
-      // Tambahkan kode ini setelah berhasil checkout
-
-      // Untuk produk dengan stok 1 yang habis setelah dibeli
+      // Update stok dan tandai item dengan stok habis sebagai "out_of_stock"
       for (const item of cartItems) {
-        if (item.stock <= item.quantity) {
-          // Hapus item dari katalog jika stok habis
-          await client.query(`DELETE FROM items WHERE id = $1`, [item.item_id]);
-        } else {
-          // Kurangi stok
-          await client.query(
-            `UPDATE items SET stock = stock - $1 WHERE id = $2`,
-            [item.quantity, item.item_id]
-          );
+        // Dapatkan stok terbaru dari database
+        const stockResult = await client.query(
+          `SELECT stock FROM items WHERE id = $1`,
+          [item.item_id]
+        );
+        
+        if (stockResult.rows.length > 0) {
+          const currentStock = parseInt(stockResult.rows[0].stock);
+          const purchasedQuantity = parseInt(item.quantity);
+          const newStock = currentStock - purchasedQuantity;
+          
+          if (newStock <= 0) {
+            console.log(`Marking item ${item.item_id} as out_of_stock`);
+            // Set stok 0 dan status "out_of_stock"
+            await client.query(
+              `UPDATE items SET stock = 0, status = 'out_of_stock' WHERE id = $1`,
+              [item.item_id]
+            );
+          } else {
+            console.log(`Updating stock for item ${item.item_id}: ${currentStock} - ${purchasedQuantity} = ${newStock}`);
+            // Kurangi stok
+            await client.query(
+              `UPDATE items SET stock = $1 WHERE id = $2`,
+              [newStock, item.item_id]
+            );
+          }
         }
       }
 
@@ -96,11 +118,12 @@ exports.processCheckout = async (req, res) => {
       
       return baseResponse(res, true, 200, "Checkout successful", {
         order_id: orderId,
-        total_amount: totalAmount,
+        total_amount: orderTotal,
         user: updatedUser
       });
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error("Transaction error:", error);
       throw error;
     } finally {
       client.release();

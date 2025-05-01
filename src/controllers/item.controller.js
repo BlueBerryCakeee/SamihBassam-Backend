@@ -62,13 +62,22 @@ exports.createItem = async (req, res) => {
   }
 };
 
+// Update di metode getItemById untuk menghormati status
+
 exports.getItemById = async (req, res) => {
   const { id } = req.params;
   try {
     const item = await itemRepository.getItemById(id);
+    
     if (!item) {
       return baseResponse(res, false, 404, "Item not found", null);
     }
+    
+    // Item dengan stok habis atau status out_of_stock tidak bisa diakses
+    if (item.stock <= 0 || item.status === 'out_of_stock') {
+      return baseResponse(res, false, 404, "Item is out of stock", null);
+    }
+    
     baseResponse(res, true, 200, "Item retrieved successfully", item);
   } catch (error) {
     baseResponse(res, false, 500, "Failed to retrieve item", error.message);

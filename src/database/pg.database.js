@@ -3,7 +3,16 @@ const { Pool } = require("pg");
 
 const pool = new Pool({
   connectionString: process.env.PG_CONNECTION_STRING,
-  ssl: { rejectUnauthorized: false },
+  ssl: {
+    rejectUnauthorized: false // Untuk koneksi ke Neon
+  },
+  max: 10, // Batasi jumlah koneksi maksimum
+  idleTimeoutMillis: 30000
+});
+
+// Menangani error koneksi
+pool.on('error', (err) => {
+  console.error('Unexpected database error:', err);
 });
 
 pool.connect()
